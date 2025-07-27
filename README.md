@@ -58,7 +58,7 @@ An intelligent presentation assistant powered by Google Gemini AI that provides 
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd ver0
+   cd professorgemini
    ```
 
 2. **Install dependencies**
