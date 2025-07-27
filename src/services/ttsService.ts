@@ -36,7 +36,6 @@ export const speak = (text: string, onEnd: () => void) => {
         onEnd();
     };
 
-    // Try to find the most natural-sounding voice
     const preferredVoice = voices.find(v => v.name.includes("Neural")) ||
                           voices.find(v => v.name.includes("Premium")) ||
                           voices.find(v => v.name.includes("Enhanced")) ||
@@ -47,10 +46,9 @@ export const speak = (text: string, onEnd: () => void) => {
         utterance.voice = preferredVoice;
     }
     
-    // Adjust parameters for more natural speech
-    utterance.pitch = 1.0;  // Normal pitch
-    utterance.rate = 0.9;   // Slightly slower rate
-    utterance.volume = 1.0; // Full volume
+    utterance.pitch = 1.0;  
+    utterance.rate = 0.9;   
+    utterance.volume = 1.0; 
     
     window.speechSynthesis.speak(utterance);
 };
