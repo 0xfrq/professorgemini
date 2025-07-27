@@ -38,7 +38,6 @@ export async function explainSlide(imageBase64: string, language: 'english' | 'i
   };
 
   try {
-    // Create a new chat instance with the appropriate system prompt for this language
     const languageSpecificChat = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {
