@@ -80,7 +80,6 @@ export async function explainSlideStream(
   }
 }
 
-// Keep the original non-streaming version for backward compatibility
 export async function explainSlide(imageBase64: string, language: 'english' | 'indonesian' = 'english'): Promise<string> {
   const imagePart = {
     inlineData: {
@@ -122,6 +121,3 @@ export async function explainSlide(imageBase64: string, language: 'english' | 'i
       : "Terjadi kesalahan yang tidak diketahui saat menganalisis slide.";
   }
 }
-
-// Remove the chat-based initialization as it's not needed with the new API
-// The initializeChat function is no longer necessary

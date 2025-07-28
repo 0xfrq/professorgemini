@@ -62,13 +62,9 @@ const ScreenPreview: React.FC<{
   const previewRef = useRef<HTMLDivElement>(null);
   const [controlStatus, setControlStatus] = useState<'none' | 'requesting' | 'active' | 'denied' | 'unsupported'>('none');
   const [isTabCapture, setIsTabCapture] = useState(false);
-
-  // Check if Captured Surface Control is supported
   const isCapturedSurfaceControlSupported = () => {
     return !!(window as any).CaptureController?.prototype.forwardWheel;
   };
-
-  // Check if we're capturing a tab
   useEffect(() => {
     if (!isSharing || !videoRef.current?.srcObject) {
       setIsTabCapture(false);
@@ -84,8 +80,6 @@ const ScreenPreview: React.FC<{
       console.log('Capture type:', settings.displaySurface, '- Tab capture:', isTab);
     }
   }, [isSharing, videoRef.current?.srcObject]);
-
-  // Setup wheel forwarding
   useEffect(() => {
     if (!isSharing || !previewRef.current || !wheelForwardingEnabled || !captureController) {
       setControlStatus('none');
@@ -106,10 +100,7 @@ const ScreenPreview: React.FC<{
 
         setControlStatus('requesting');
         console.log('Setting up wheel forwarding for captured tab...');
-
-        // Set up wheel forwarding (this will prompt for permission on first use)
         await captureController.forwardWheel(previewElement);
-        
         setControlStatus('active');
         console.log('Wheel forwarding activated successfully');
 
@@ -125,8 +116,6 @@ const ScreenPreview: React.FC<{
             setControlStatus('denied');
           }
         }
-        
-        // Fallback to manual wheel handling
         setupManualWheelHandling(previewElement);
       }
     };
@@ -141,12 +130,10 @@ const ScreenPreview: React.FC<{
         
         console.log(`Manual wheel event: ${direction} (magnitude: ${magnitude})`);
         
-        // Try to simulate keyboard events as a fallback
         try {
           const keyEvent = direction === 'down' ? 'ArrowDown' : 'ArrowUp';
           const pageKeyEvent = direction === 'down' ? 'PageDown' : 'PageUp';
           
-          // Try both arrow keys and page keys
           const keys = [keyEvent, pageKeyEvent];
           
           keys.forEach((key, index) => {
@@ -179,17 +166,14 @@ const ScreenPreview: React.FC<{
 
       element.addEventListener('wheel', handleWheelEvent, { passive: false });
       
-      // Store for cleanup
       (element as any)._manualWheelHandler = handleWheelEvent;
     };
 
     setupWheelForwarding();
 
-    // Cleanup function
     return () => {
       if (captureController && wheelForwardingEnabled) {
         try {
-          // Stop wheel forwarding
           captureController.forwardWheel(null);
           console.log('Wheel forwarding stopped');
         } catch (error) {
@@ -197,7 +181,6 @@ const ScreenPreview: React.FC<{
         }
       }
       
-      // Clean up manual wheel handler
       if (previewElement && (previewElement as any)._manualWheelHandler) {
         const handler = (previewElement as any)._manualWheelHandler;
         previewElement.removeEventListener('wheel', handler);
@@ -210,7 +193,6 @@ const ScreenPreview: React.FC<{
 
   return (
     <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden border border-gray-700 flex flex-col">
-      {/* Wheel Control Toggle */}
       {isSharing && (
         <div className="flex justify-between items-center p-2 bg-gray-800/50 border-b border-gray-700">
           <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -254,7 +236,6 @@ const ScreenPreview: React.FC<{
         </div>
       )}
 
-      {/* Video Preview Area */}
       <div 
         ref={previewRef}
         className="flex-1 flex items-center justify-center"
@@ -286,7 +267,6 @@ const ScreenPreview: React.FC<{
         )}
       </div>
 
-      {/* Status Messages */}
       {isSharing && wheelForwardingEnabled && (
         <div className={`p-2 border-t ${
           controlStatus === 'active' ? 'bg-green-600/20 border-green-500/30' :
@@ -548,7 +528,6 @@ export default function App() {
           
           console.log('Processing slide with AI...');
           
-          // Create the explanation entry immediately for streaming
           const explanationId = crypto.randomUUID();
           const newExplanation: Explanation = {
               id: explanationId,
@@ -561,9 +540,7 @@ export default function App() {
           
           setExplanations(prev => [...prev, newExplanation]);
           setStreamingExplanationId(explanationId);
-          setIsProcessing(false); // Set to false since we're now streaming
-          
-          // Handle streaming chunks
+          setIsProcessing(false); 
           const handleChunk = (chunk: string) => {
               setExplanations(prev => 
                   prev.map(exp => 
@@ -624,7 +601,6 @@ export default function App() {
       videoRef.current.srcObject = null;
     }
     
-    // Clean up CaptureController
     if (captureControllerRef.current) {
       try {
         captureControllerRef.current.forwardWheel(null);
@@ -665,7 +641,6 @@ export default function App() {
     processingLockRef.current = false;
     
     try {
-      // Create CaptureController for Captured Surface Control
       let controller = null;
       if ((window as any).CaptureController) {
         controller = new (window as any).CaptureController();
@@ -676,7 +651,7 @@ export default function App() {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: 'never' } as any,
         audio: false,
-        ...(controller && { controller }) // Pass the controller to associate it with the capture
+        ...(controller && { controller }) 
       } as any);
 
       if (videoRef.current) {
@@ -687,7 +662,6 @@ export default function App() {
       streamRef.current = stream;
       setIsSharing(true);
       
-      // Log capture details for debugging
       const [track] = stream.getVideoTracks();
       if (track) {
         const settings = track.getSettings();
