@@ -279,24 +279,9 @@ export default function App() {
         const base64Image = fullImageDataUrl.split(',')[1];
         
         console.log('Processing slide with AI...');
-        await fetch('http://localhost:4000/log-explanation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: 'Processing slide with AI...'
-          })
-        });
         const rawExplanationText = await explainSlide(base64Image, language);
         
         const explanationText = cleanExplanationText(rawExplanationText);
-        await fetch('http://localhost:4000/log-explanation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            language,
-            text: explanationText
-          })
-        });
         console.log(`${language.toUpperCase()}]:\n${explanationText}\n`);
 
 
