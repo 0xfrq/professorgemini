@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Chat } from '@google/genai';
 import type { Explanation } from './types';
-import { initializeChat, explainSlideStream } from './services/geminiService';
+import { explainSlideStream } from './services/geminiService';
 import * as tts from './services/ttsService';
-import { PlayIcon, StopIcon, RobotIcon, BookOpenIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from './components/icons';
+import { PlayIcon, StopIcon, BookOpenIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from './components/icons';
 
 type Language = 'english' | 'indonesian';
 
@@ -53,18 +52,268 @@ const calculateImageSimilarity = (canvas1: HTMLCanvasElement, canvas2: HTMLCanva
   return Math.max(0, Math.min(1, similarity));
 };
 
-const ScreenPreview: React.FC<{ videoRef: React.RefObject<HTMLVideoElement | null>; isSharing: boolean }> = ({ videoRef, isSharing }) => (
-  <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center">
-    <video ref={videoRef} autoPlay muted playsInline className={`w-full h-full object-contain ${isSharing ? '' : 'hidden'}`}></video>
-    {!isSharing && (
-      <div className="text-center text-gray-500">
-        <BookOpenIcon className="w-24 h-24 mx-auto mb-4 stroke-1" />
-        <h2 className="text-2xl font-bold">Your Slides Will Appear Here</h2>
-        <p className="mt-2">Click "Start Presenting" to begin sharing your screen.</p>
+const ScreenPreview: React.FC<{ 
+  videoRef: React.RefObject<HTMLVideoElement | null>; 
+  isSharing: boolean;
+  onWheelForwardingChange: (enabled: boolean) => void;
+  wheelForwardingEnabled: boolean;
+  captureController: any;
+}> = ({ videoRef, isSharing, onWheelForwardingChange, wheelForwardingEnabled, captureController }) => {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [controlStatus, setControlStatus] = useState<'none' | 'requesting' | 'active' | 'denied' | 'unsupported'>('none');
+  const [isTabCapture, setIsTabCapture] = useState(false);
+
+  // Check if Captured Surface Control is supported
+  const isCapturedSurfaceControlSupported = () => {
+    return !!(window as any).CaptureController?.prototype.forwardWheel;
+  };
+
+  // Check if we're capturing a tab
+  useEffect(() => {
+    if (!isSharing || !videoRef.current?.srcObject) {
+      setIsTabCapture(false);
+      return;
+    }
+
+    const stream = videoRef.current.srcObject as MediaStream;
+    const [track] = stream.getVideoTracks();
+    if (track) {
+      const settings = track.getSettings();
+      const isTab = settings.displaySurface === 'browser';
+      setIsTabCapture(isTab);
+      console.log('Capture type:', settings.displaySurface, '- Tab capture:', isTab);
+    }
+  }, [isSharing, videoRef.current?.srcObject]);
+
+  // Setup wheel forwarding
+  useEffect(() => {
+    if (!isSharing || !previewRef.current || !wheelForwardingEnabled || !captureController) {
+      setControlStatus('none');
+      return;
+    }
+
+    const previewElement = previewRef.current;
+
+    const setupWheelForwarding = async () => {
+      try {
+        if (!isCapturedSurfaceControlSupported()) {
+          throw new Error('CaptureController forwardWheel not supported');
+        }
+
+        if (!isTabCapture) {
+          throw new Error('Captured Surface Control only works with browser tabs');
+        }
+
+        setControlStatus('requesting');
+        console.log('Setting up wheel forwarding for captured tab...');
+
+        // Set up wheel forwarding (this will prompt for permission on first use)
+        await captureController.forwardWheel(previewElement);
+        
+        setControlStatus('active');
+        console.log('Wheel forwarding activated successfully');
+
+      } catch (error) {
+        console.warn('Failed to setup wheel forwarding:', error);
+        
+        if (error instanceof Error) {
+          if (error.message.includes('not supported')) {
+            setControlStatus('unsupported');
+          } else if (error.message.includes('permission') || error.name === 'NotAllowedError') {
+            setControlStatus('denied');
+          } else {
+            setControlStatus('denied');
+          }
+        }
+        
+        // Fallback to manual wheel handling
+        setupManualWheelHandling(previewElement);
+      }
+    };
+
+    const setupManualWheelHandling = (element: HTMLElement) => {
+      const handleWheelEvent = (event: WheelEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const direction = event.deltaY > 0 ? 'down' : 'up';
+        const magnitude = Math.abs(event.deltaY);
+        
+        console.log(`Manual wheel event: ${direction} (magnitude: ${magnitude})`);
+        
+        // Try to simulate keyboard events as a fallback
+        try {
+          const keyEvent = direction === 'down' ? 'ArrowDown' : 'ArrowUp';
+          const pageKeyEvent = direction === 'down' ? 'PageDown' : 'PageUp';
+          
+          // Try both arrow keys and page keys
+          const keys = [keyEvent, pageKeyEvent];
+          
+          keys.forEach((key, index) => {
+            setTimeout(() => {
+              const keydownEvent = new KeyboardEvent('keydown', {
+                key: key,
+                code: key,
+                bubbles: true,
+                cancelable: true
+              });
+              
+              const keyupEvent = new KeyboardEvent('keyup', {
+                key: key,
+                code: key,
+                bubbles: true,
+                cancelable: true
+              });
+              
+              document.dispatchEvent(keydownEvent);
+              setTimeout(() => document.dispatchEvent(keyupEvent), 50);
+              
+              console.log(`Simulated ${key} key press`);
+            }, index * 100);
+          });
+          
+        } catch (err) {
+          console.warn('Failed to simulate keyboard event:', err);
+        }
+      };
+
+      element.addEventListener('wheel', handleWheelEvent, { passive: false });
+      
+      // Store for cleanup
+      (element as any)._manualWheelHandler = handleWheelEvent;
+    };
+
+    setupWheelForwarding();
+
+    // Cleanup function
+    return () => {
+      if (captureController && wheelForwardingEnabled) {
+        try {
+          // Stop wheel forwarding
+          captureController.forwardWheel(null);
+          console.log('Wheel forwarding stopped');
+        } catch (error) {
+          console.warn('Failed to stop wheel forwarding:', error);
+        }
+      }
+      
+      // Clean up manual wheel handler
+      if (previewElement && (previewElement as any)._manualWheelHandler) {
+        const handler = (previewElement as any)._manualWheelHandler;
+        previewElement.removeEventListener('wheel', handler);
+        delete (previewElement as any)._manualWheelHandler;
+      }
+      
+      setControlStatus('none');
+    };
+  }, [isSharing, wheelForwardingEnabled, captureController, isTabCapture]);
+
+  return (
+    <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden border border-gray-700 flex flex-col">
+      {/* Wheel Control Toggle */}
+      {isSharing && (
+        <div className="flex justify-between items-center p-2 bg-gray-800/50 border-b border-gray-700">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            Scroll Control: 
+            <span className={`px-2 py-1 rounded text-xs font-medium ${
+              controlStatus === 'active' ? 'bg-green-600 text-white' :
+              controlStatus === 'requesting' ? 'bg-blue-600 text-white' :
+              controlStatus === 'denied' ? 'bg-red-600 text-white' :
+              controlStatus === 'unsupported' ? 'bg-orange-600 text-white' :
+              'bg-gray-600 text-gray-300'
+            }`}>
+              {controlStatus === 'active' ? 'Active' :
+               controlStatus === 'requesting' ? 'Requesting' :
+               controlStatus === 'denied' ? 'Denied/Fallback' :
+               controlStatus === 'unsupported' ? 'Unsupported' :
+               'Disabled'}
+            </span>
+            {!isTabCapture && isSharing && (
+              <span className="text-xs text-orange-400">
+                (Tab capture required)
+              </span>
+            )}
+          </div>
+          
+          <button
+            onClick={() => onWheelForwardingChange(!wheelForwardingEnabled)}
+            className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+              wheelForwardingEnabled 
+                ? 'bg-green-600 border-green-600 text-white hover:bg-green-700' 
+                : 'bg-gray-600 border-gray-600 text-gray-300 hover:bg-gray-700'
+            }`}
+            title={wheelForwardingEnabled ? 'Disable scroll control' : 'Enable scroll control'}
+            disabled={controlStatus === 'requesting'}
+          >
+            <span className={`w-2 h-2 rounded-full ${
+              controlStatus === 'requesting' ? 'bg-blue-300 animate-pulse' :
+              wheelForwardingEnabled ? 'bg-green-300' : 'bg-gray-400'
+            }`}></span>
+            {wheelForwardingEnabled ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+      )}
+
+      {/* Video Preview Area */}
+      <div 
+        ref={previewRef}
+        className="flex-1 flex items-center justify-center"
+        style={{ 
+          cursor: wheelForwardingEnabled && isSharing ? 'grab' : 'default',
+          userSelect: 'none'
+        }}
+        onMouseEnter={() => {
+          if (wheelForwardingEnabled && previewRef.current) {
+            previewRef.current.focus();
+          }
+        }}
+        tabIndex={wheelForwardingEnabled ? 0 : -1}
+      >
+        <video 
+          ref={videoRef} 
+          autoPlay 
+          muted 
+          playsInline 
+          className={`w-full h-full object-contain ${isSharing ? '' : 'hidden'}`}
+        />
+        {!isSharing && (
+          <div className="text-center text-gray-500">
+            <BookOpenIcon className="w-24 h-24 mx-auto mb-4 stroke-1" />
+            <h2 className="text-2xl font-bold">Your Slides Will Appear Here</h2>
+            <p className="mt-2">Click "Start Presenting" to begin sharing your screen.</p>
+            <p className="mt-1 text-sm">Select a browser tab for scroll control features.</p>
+          </div>
+        )}
       </div>
-    )}
-  </div>
-);
+
+      {/* Status Messages */}
+      {isSharing && wheelForwardingEnabled && (
+        <div className={`p-2 border-t ${
+          controlStatus === 'active' ? 'bg-green-600/20 border-green-500/30' :
+          controlStatus === 'requesting' ? 'bg-blue-600/20 border-blue-500/30' :
+          controlStatus === 'denied' ? 'bg-red-600/20 border-red-500/30' :
+          controlStatus === 'unsupported' ? 'bg-orange-600/20 border-orange-500/30' :
+          'bg-blue-600/20 border-blue-500/30'
+        }`}>
+          <p className={`text-xs text-center ${
+            controlStatus === 'active' ? 'text-green-200' :
+            controlStatus === 'requesting' ? 'text-blue-200' :
+            controlStatus === 'denied' ? 'text-red-200' :
+            controlStatus === 'unsupported' ? 'text-orange-200' :
+            'text-blue-200'
+          }`}>
+            {controlStatus === 'requesting' && '🔄 Requesting permission for scroll control...'}
+            {controlStatus === 'active' && '🖱️ Native scroll control active - scroll here to control the captured tab'}
+            {controlStatus === 'denied' && '❌ Using keyboard simulation fallback - scroll to send arrow/page key events'}
+            {controlStatus === 'unsupported' && '⚠️ Native scroll control not supported - using keyboard simulation fallback'}
+            {controlStatus === 'none' && !isTabCapture && '⚠️ Please capture a browser tab to enable scroll control'}
+            {controlStatus === 'none' && isTabCapture && '🖱️ Click "Enabled" to activate scroll control'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProfessorView: React.FC<{ 
   explanations: Explanation[]; 
@@ -75,7 +324,10 @@ const ProfessorView: React.FC<{
   streamingExplanationId: string | null;
   onToggleMute: () => void;
   onToggleLanguage: () => void;
-}> = ({ explanations, isProcessing, isSpeaking, isMuted, language, streamingExplanationId, onToggleMute, onToggleLanguage }) => {
+  isSharing: boolean;
+  onStart: () => void;
+  onStop: () => void;
+}> = ({ explanations, isProcessing, isSpeaking, isMuted, language, streamingExplanationId, onToggleMute, onToggleLanguage, isSharing, onStart, onStop }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,15 +338,31 @@ const ProfessorView: React.FC<{
   return (
     <div className="bg-gray-800 rounded-lg p-4 sm:p-6 flex flex-col h-full border border-gray-700 max-h-[900px] sm:max-h-[600px] lg:max-h-[600px]">
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h2 className="text-xl sm:text-2xl font-bold text-indigo-400 flex items-center gap-2 sm:gap-3">
-          <RobotIcon className="w-6 h-6 sm:w-8 sm:h-8"/> 
-          <span className="hidden sm:inline">Professor Gemini</span>
-          <span className="sm:hidden">Prof. Gemini</span>
-        </h2>
+
         <div className="flex items-center gap-2">
+          {!isSharing ? (
+            <button
+              onClick={onStart}
+              className="flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              title="Start presenting"
+            >
+              <PlayIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Start Presenting</span>
+            </button>
+          ) : (
+            <button
+              onClick={onStop}
+              className="flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border bg-red-600 border-red-600 text-white hover:bg-red-700 transition-colors"
+              title="Stop presenting"
+            >
+              <StopIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Stop</span>
+            </button>
+          )}
+          
           <button 
             onClick={onToggleLanguage}
-            className="flex items-center gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs font-medium rounded-lg border transition-colors hover:bg-gray-700"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border transition-colors hover:bg-gray-700"
             style={{
               backgroundColor: language === 'english' ? '#3b82f6' : '#ef4444',
               borderColor: language === 'english' ? '#3b82f6' : '#ef4444',
@@ -107,11 +375,11 @@ const ProfessorView: React.FC<{
           
           <button 
             onClick={onToggleMute} 
-            className="text-gray-400 hover:text-white transition-colors p-1 sm:p-2 rounded-full hover:bg-gray-700" 
+            className="flex items-center justify-center px-3 py-2 text-xs font-medium rounded-lg border text-gray-400 hover:text-white border-gray-600 hover:bg-gray-700 transition-colors" 
             aria-label={isMuted ? "Unmute TTS" : "Mute TTS"}
             title={isMuted ? "Unmute Text-to-Speech" : "Mute Text-to-Speech"}
           >
-            {isMuted ? <SpeakerXMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" /> : <SpeakerWaveIcon className="w-5 h-5 sm:w-6 sm:h-6" />}
+            {isMuted ? <SpeakerXMarkIcon className="w-4 h-4" /> : <SpeakerWaveIcon className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -196,29 +464,6 @@ const ProfessorView: React.FC<{
   );
 };
 
-const Controls: React.FC<{ onStart: () => void; onStop: () => void; isSharing: boolean; error: string | null }> = ({ onStart, onStop, isSharing, error }) => (
-    <div className="flex flex-col items-center justify-center p-4">
-        {!isSharing ? (
-            <button
-                onClick={onStart}
-                className="flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-500 transition-all duration-300 shadow-lg shadow-indigo-600/30 transform hover:scale-105 text-sm sm:text-base"
-            >
-                <PlayIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                Start Presenting
-            </button>
-        ) : (
-            <button
-                onClick={onStop}
-                className="flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-red-600 text-white font-bold rounded-full hover:bg-red-500 transition-all duration-300 shadow-lg shadow-red-600/30 transform hover:scale-105 text-sm sm:text-base"
-            >
-                <StopIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                Stop Presenting
-            </button>
-        )}
-        {error && <p className="text-red-400 mt-4 text-center text-sm">{error}</p>}
-    </div>
-);
-
 export default function App() {
   const [isSharing, setIsSharing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -228,18 +473,19 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Explanation[]>([]);
   const [streamingExplanationId, setStreamingExplanationId] = useState<string | null>(null);
+  const [wheelForwardingEnabled, setWheelForwardingEnabled] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const currentCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const previousCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const streamRef = useRef<MediaStream | null>(null);
-  const chatRef = useRef<Chat | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastProcessedTimeRef = useRef<number>(0);
   const processingLockRef = useRef<boolean>(false);
+  const captureControllerRef = useRef<any>(null);
 
   const checkForSlideChangeAndExplain = useCallback(async () => {
-      if (processingLockRef.current || isProcessing || isSpeaking || !videoRef.current || videoRef.current.videoHeight === 0 || !chatRef.current) {
+      if (processingLockRef.current || isProcessing || isSpeaking || !videoRef.current || videoRef.current.videoHeight === 0) {
           return;
       }
 
@@ -328,10 +574,8 @@ export default function App() {
               );
           };
           
-          // Start streaming
           const fullExplanationText = await explainSlideStream(base64Image, language, handleChunk);
           
-          // Mark as complete
           setExplanations(prev => 
               prev.map(exp => 
                   exp.id === explanationId 
@@ -344,7 +588,6 @@ export default function App() {
           const cleanedText = cleanExplanationText(fullExplanationText);
           console.log(`${language.toUpperCase()}]:\n${cleanedText}\n`);
 
-          // Handle TTS after streaming is complete
           if (!isMuted) {
               console.log('TTS not muted - speaking explanation');
               setIsSpeaking(true);
@@ -380,12 +623,23 @@ export default function App() {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    
+    // Clean up CaptureController
+    if (captureControllerRef.current) {
+      try {
+        captureControllerRef.current.forwardWheel(null);
+      } catch (error) {
+        console.warn('Failed to clean up wheel forwarding:', error);
+      }
+      captureControllerRef.current = null;
+    }
+    
     tts.cancel();
     setIsSharing(false);
     setIsProcessing(false);
     setIsSpeaking(false);
     setStreamingExplanationId(null);
-    chatRef.current = null;
+    setWheelForwardingEnabled(false);
     lastProcessedTimeRef.current = 0;
     processingLockRef.current = false;
     
@@ -411,10 +665,19 @@ export default function App() {
     processingLockRef.current = false;
     
     try {
+      // Create CaptureController for Captured Surface Control
+      let controller = null;
+      if ((window as any).CaptureController) {
+        controller = new (window as any).CaptureController();
+        captureControllerRef.current = controller;
+        console.log('CaptureController created for Captured Surface Control');
+      }
+
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: 'never' } as any,
         audio: false,
-      });
+        ...(controller && { controller }) // Pass the controller to associate it with the capture
+      } as any);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -422,8 +685,16 @@ export default function App() {
       }
       
       streamRef.current = stream;
-      chatRef.current = initializeChat();
       setIsSharing(true);
+      
+      // Log capture details for debugging
+      const [track] = stream.getVideoTracks();
+      if (track) {
+        const settings = track.getSettings();
+        console.log('Capture settings:', settings);
+        console.log('Display surface:', settings.displaySurface);
+        console.log('Captured Surface Control available:', !!controller && settings.displaySurface === 'browser');
+      }
       
       setTimeout(() => {
         intervalRef.current = setInterval(checkForSlideChangeAndExplain, SLIDE_CHECK_INTERVAL);
@@ -435,6 +706,7 @@ export default function App() {
       console.error("Error starting screen share:", err);
       const errorMessage = err instanceof Error ? err.message : 'Could not start screen share.';
       setError(`Error: ${errorMessage}`);
+      captureControllerRef.current = null;
     }
   }, [checkForSlideChangeAndExplain, handleStopSharing]);
 
@@ -478,7 +750,13 @@ export default function App() {
 
         <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4 min-h-0 max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-200px)]">
             <div className="hidden lg:block lg:col-span-2 min-h-[400px] lg:min-h-0">
-                 <ScreenPreview videoRef={videoRef} isSharing={isSharing} />
+                 <ScreenPreview 
+                   videoRef={videoRef} 
+                   isSharing={isSharing} 
+                   onWheelForwardingChange={setWheelForwardingEnabled}
+                   wheelForwardingEnabled={wheelForwardingEnabled}
+                   captureController={captureControllerRef.current}
+                 />
             </div>
             
             <div className="col-span-1 lg:col-span-1 min-h-[400px] lg:min-h-0 h-full">
@@ -491,12 +769,19 @@ export default function App() {
                 streamingExplanationId={streamingExplanationId}
                 onToggleMute={handleToggleMute}
                 onToggleLanguage={handleToggleLanguage}
+                isSharing={isSharing}
+                onStart={handleStartSharing}
+                onStop={handleStopSharing}
             />
             </div>
         </main>
         
         <footer>
-            <Controls onStart={handleStartSharing} onStop={handleStopSharing} isSharing={isSharing} error={error} />
+            {error && (
+                <div className="flex justify-center p-4">
+                    <p className="text-red-400 text-center text-sm">{error}</p>
+                </div>
+            )}
         </footer>
         
     </div>

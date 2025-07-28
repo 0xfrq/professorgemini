@@ -1,68 +1,55 @@
-import React from 'react';
+// Add these new icon components to your existing icons file
 
-export const PlayIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-  >
-    <path
-      fillRule="evenodd"
-      d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.647c1.295.742 1.295 2.545 0 3.286L7.279 20.99c-1.25.717-2.779-.217-2.779-1.643V5.653Z"
-      clipRule="evenodd"
-    />
+export const ChevronLeftIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
   </svg>
 );
 
-export const StopIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-  >
-    <path
-      fillRule="evenodd"
-      d="M4.5 7.5a3 3 0 0 1 3-3h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9Z"
-      clipRule="evenodd"
-    />
+export const ChevronRightIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
   </svg>
 );
 
-export const RobotIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 8V4H8" />
-        <rect width="16" height="12" x="4" y="8" rx="2" />
-        <path d="M2 14h2" />
-        <path d="M20 14h2" />
-        <path d="M15 13v2" />
-        <path d="M9 13v2" />
-    </svg>
+// Your existing icons...
+export const PlayIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7z" />
+  </svg>
 );
 
-export const BookOpenIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </svg>
+export const StopIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M6 6h12v12H6z" />
+  </svg>
 );
 
-export const SpeakerWaveIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-        <path fillRule="evenodd" d="M11.758 2.034a.75.75 0 0 1 .586.207l5.25 5.25a.75.75 0 0 1 0 1.06l-5.25 5.25a.75.75 0 0 1-1.258-.469V3.24a.75.75 0 0 1 .672-1.206Zm3.242 6.647a.75.75 0 0 1 1.06 0l1.72 1.72a.75.75 0 1 1-1.06 1.06l-1.72-1.72a.75.75 0 0 1 0-1.06Zm-3.181-4.5a.75.75 0 0 1 1.06 0l4.093 4.093a.75.75 0 0 1-1.06 1.06L11.82 5.18a.75.75 0 0 1 0-1.06ZM12 3.122a.75.75 0 0 1 .75.75v15a.75.75 0 0 1-1.5 0V3.872a.75.75 0 0 1 .75-.75ZM3.75 7.5a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-1.5 0v-7.5a.75.75 0 0 1 .75-.75Zm3 0a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-1.5 0v-7.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-    </svg>
+export const RobotIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <rect x="3" y="11" width="18" height="10" rx="2" strokeWidth={2} />
+    <circle cx="12" cy="5" r="2" strokeWidth={2} />
+    <path d="M12 7v4" strokeWidth={2} />
+    <line x1="8" y1="16" x2="8" y2="17" strokeWidth={2} />
+    <line x1="16" y1="16" x2="16" y2="17" strokeWidth={2} />
+  </svg>
 );
 
-export const SpeakerXMarkIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path fillRule="evenodd" d="M11.758 2.034a.75.75 0 0 1 .586.207l5.25 5.25a.75.75 0 0 1 0 1.06l-5.25 5.25a.75.75 0 0 1-1.258-.469V3.24a.75.75 0 0 1 .672-1.206ZM12 3.122a.75.75 0 0 1 .75.75v15a.75.75 0 0 1-1.5 0V3.872a.75.75 0 0 1 .75-.75ZM3.75 7.5a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-1.5 0v-7.5a.75.75 0 0 1 .75-.75Zm3 0a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-1.5 0v-7.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-      <path d="M16.75 12.25a.75.75 0 0 0-1.06-1.06l-1.72 1.72-1.72-1.72a.75.75 0 0 0-1.06 1.06l1.72 1.72-1.72 1.72a.75.75 0 1 0 1.06 1.06l1.72-1.72 1.72 1.72a.75.75 0 0 0 1.06-1.06l-1.72-1.72 1.72-1.72Z" />
-    </svg>
+export const BookOpenIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+  </svg>
 );
 
-export const PauseIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75.75V18a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75ZM16.5 5.25a.75.75 0 0 1 .75.75V18a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-    </svg>
+export const SpeakerWaveIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M6 10l4-4v12l-4-4H4a1 1 0 01-1-1v-4a1 1 0 011-1h2z" />
+  </svg>
+);
+
+export const SpeakerXMarkIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+  </svg>
 );

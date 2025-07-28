@@ -1,4 +1,4 @@
-import { GoogleGenAI, Chat } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 const apiKey = import.meta.env.VITE_API_KEY;
 
@@ -24,16 +24,6 @@ Always respond in English.`,
   indonesian: `Anda adalah profesor universitas kelas dunia dan pembicara publik yang ahli. Tugas Anda adalah menjelaskan setiap slide presentasi dengan cara yang sederhana, jelas, dan menarik—bukan dengan membaca isi slide, tapi dengan menguraikan ide-ide di dalamnya. Jelaskan seolah-olah Anda sedang membantu audiens benar-benar memahami konsepnya, menggunakan bahasa yang mudah dipahami dan dekat dengan kehidupan nyata. Buat penjelasan singkat, bermakna, dan tetap terhubung dengan slide sebelumnya agar alurnya terasa seperti kuliah yang mengalir secara alami. Mulailah setiap slide dengan transisi yang halus. Jangan menyapa atau menggunakan kata pembuka kasual. Jangan gunakan format markdown. Gunakan teks polos saja. Selalu tanggapi dalam Bahasa Indonesia. dan dibawah itu semua tambahkan section baru, yakni [ringkasan] yang dimana dibawahnya akan diisi ringkasan dari seluruh penjelasan panjang kedalam bentuk ringkas 1 atau 2 paragraf. di bagian respon kamu yang paling atas, beritahu aku kamu sedang melihat slide yang mana, tuliskan saja [slide x], buat materi yang mudah dipahami. jangan terlalu formal dan kaku. jika ada bulletpoint pada slide, penjelasan yang anda berikaan juga sebaiknya ditandai juga dengan bulletpoint`
 };
 
-export function initializeChat(): Chat {
-  return ai.chats.create({
-    model: 'gemini-2.5-flash',
-    config: {
-      systemInstruction: SYSTEM_PROMPTS.english,
-    },
-  });
-}
-
-// Streaming version of explainSlide
 export async function explainSlideStream(
   imageBase64: string, 
   language: 'english' | 'indonesian' = 'english',
@@ -53,15 +43,17 @@ export async function explainSlideStream(
   };
 
   try {
-    const languageSpecificChat = ai.chats.create({
+    const response = await ai.models.generateContentStream({
       model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [imagePart, textPart]
+        }
+      ],
       config: {
-        systemInstruction: SYSTEM_PROMPTS[language],
-      },
-    });
-    
-    const response = await languageSpecificChat.sendMessageStream({ 
-      message: [imagePart, textPart] 
+        systemInstruction: SYSTEM_PROMPTS[language]
+      }
     });
     
     let fullText = '';
@@ -104,14 +96,19 @@ export async function explainSlide(imageBase64: string, language: 'english' | 'i
   };
 
   try {
-    const languageSpecificChat = ai.chats.create({
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [imagePart, textPart]
+        }
+      ],
       config: {
-        systemInstruction: SYSTEM_PROMPTS[language],
-      },
+        systemInstruction: SYSTEM_PROMPTS[language]
+      }
     });
     
-    const response = await languageSpecificChat.sendMessage({ message: [imagePart, textPart] }); 
     return response.text ?? "No response received from the AI.";
   } catch (error) {
     console.error("Error explaining slide:", error);
@@ -125,3 +122,6 @@ export async function explainSlide(imageBase64: string, language: 'english' | 'i
       : "Terjadi kesalahan yang tidak diketahui saat menganalisis slide.";
   }
 }
+
+// Remove the chat-based initialization as it's not needed with the new API
+// The initializeChat function is no longer necessary
