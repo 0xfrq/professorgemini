@@ -1,28 +1,28 @@
 import { GoogleGenAI } from '@google/genai';
 
+const apiKey = import.meta.env.VITE_API_KEY;
+
 let isInitialized = false;
 let ai: GoogleGenAI | null = null;
 
-const initialize = (apiKey?: string) => {
+const initialize = () => {
     if (isInitialized) return;
     
-    const key = "xxx";
-    
-    if (!key) {
+    if (!apiKey) {
         throw new Error("VITE_API_KEY is not set");
     }
     
     try {
-        ai = new GoogleGenAI({ apiKey: key });
+        ai = new GoogleGenAI({ apiKey });
         isInitialized = true;
     } catch (error) {
         console.error("Failed to initialize Google GenAI:", error);
     }
 };
 
-export const speak = async (text: string, onEnd: () => void, apiKey?: string) => {
+export const speak = async (text: string, onEnd: () => void) => {
     if (!isInitialized) {
-        initialize(apiKey);
+        initialize();
     }
     
     if (!ai) {
@@ -120,8 +120,9 @@ export const cancel = () => {
     }
 };
 
-export const setApiKey = (apiKey: string) => {
-    initialize(apiKey);
+export const setApiKey = (_apiKey: string) => {
+    // This function is now deprecated since we use env variable
+    console.warn('setApiKey is deprecated. Please set VITE_API_KEY environment variable instead.');
 };
 
 export const VOICE_OPTIONS = {
@@ -131,11 +132,10 @@ export const VOICE_OPTIONS = {
 export const speakWithVoice = async (
     text: string, 
     voiceName: string, 
-    onEnd: () => void, 
-    apiKey?: string
+    onEnd: () => void
 ) => {
     if (!isInitialized) {
-        initialize(apiKey);
+        initialize();
     }
     
     if (!ai) {
