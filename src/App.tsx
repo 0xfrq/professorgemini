@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Chat } from '@google/genai';
 import type { Explanation } from './types';
-import { initializeChat, explainSlide } from './services/geminiService';
+import { initializeChat, explainSlideStream } from './services/geminiService';
 import * as tts from './services/ttsService';
 import { PlayIcon, StopIcon, RobotIcon, BookOpenIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from './components/icons';
 
 type Language = 'english' | 'indonesian';
 
-const SLIDE_CHECK_INTERVAL = 300; 
-const SIMILARITY_THRESHOLD = 0.97 
-const MIN_PROCESSING_INTERVAL = 5000; 
+const SLIDE_CHECK_INTERVAL = 100; 
+const SIMILARITY_THRESHOLD = 0.978 
+const MIN_PROCESSING_INTERVAL = 1000;
 
 const cleanExplanationText = (text: string): string => {
   return text
@@ -72,23 +72,29 @@ const ProfessorView: React.FC<{
   isSpeaking: boolean;
   isMuted: boolean;
   language: Language;
+  streamingExplanationId: string | null;
   onToggleMute: () => void;
   onToggleLanguage: () => void;
-}> = ({ explanations, isProcessing, isSpeaking, isMuted, language, onToggleMute, onToggleLanguage }) => {
+}> = ({ explanations, isProcessing, isSpeaking, isMuted, language, streamingExplanationId, onToggleMute, onToggleLanguage }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+  }, [explanations, streamingExplanationId]);
 
   const reversedExplanations = [...explanations].reverse();
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 flex flex-col h-full border border-gray-700 max-h-[600px]">
+    <div className="bg-gray-800 rounded-lg p-4 sm:p-6 flex flex-col h-full border border-gray-700 max-h-[900px] sm:max-h-[600px] lg:max-h-[600px]">
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h2 className="text-2xl font-bold text-indigo-400 flex items-center gap-3">
-          <RobotIcon className="w-8 h-8"/> Professor Gemini
+        <h2 className="text-xl sm:text-2xl font-bold text-indigo-400 flex items-center gap-2 sm:gap-3">
+          <RobotIcon className="w-6 h-6 sm:w-8 sm:h-8"/> 
+          <span className="hidden sm:inline">Professor Gemini</span>
+          <span className="sm:hidden">Prof. Gemini</span>
         </h2>
         <div className="flex items-center gap-2">
           <button 
             onClick={onToggleLanguage}
-            className="flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border transition-colors hover:bg-gray-700"
+            className="flex items-center gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs font-medium rounded-lg border transition-colors hover:bg-gray-700"
             style={{
               backgroundColor: language === 'english' ? '#3b82f6' : '#ef4444',
               borderColor: language === 'english' ? '#3b82f6' : '#ef4444',
@@ -101,11 +107,11 @@ const ProfessorView: React.FC<{
           
           <button 
             onClick={onToggleMute} 
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-gray-700" 
+            className="text-gray-400 hover:text-white transition-colors p-1 sm:p-2 rounded-full hover:bg-gray-700" 
             aria-label={isMuted ? "Unmute TTS" : "Mute TTS"}
             title={isMuted ? "Unmute Text-to-Speech" : "Mute Text-to-Speech"}
           >
-            {isMuted ? <SpeakerXMarkIcon className="w-6 h-6" /> : <SpeakerWaveIcon className="w-6 h-6" />}
+            {isMuted ? <SpeakerXMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" /> : <SpeakerWaveIcon className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
         </div>
       </div>
@@ -119,13 +125,19 @@ const ProfessorView: React.FC<{
              </p>
            </div>
         )}
-         {isSpeaking && !isProcessing && (
+        {streamingExplanationId && !isProcessing && (
+           <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-600/20 border border-blue-500/30">
+             <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+             <p className="text-blue-200 text-sm font-medium">Professor is explaining...</p>
+           </div>
+        )}
+        {isSpeaking && !isProcessing && !streamingExplanationId && (
            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-600/20 border border-green-500/30">
              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
              <p className="text-green-200 text-sm font-medium">Professor is speaking...</p>
            </div>
         )}
-        {isMuted && !isProcessing && !isSpeaking && (
+        {isMuted && !isProcessing && !isSpeaking && !streamingExplanationId && (
            <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-600/20 border border-orange-500/30">
              <SpeakerXMarkIcon className="w-4 h-4 text-orange-400" />
              <p className="text-orange-200 text-sm font-medium">
@@ -136,9 +148,9 @@ const ProfessorView: React.FC<{
       </div>
 
       <div ref={scrollRef} className="flex-grow overflow-y-auto space-y-4 pr-2">
-        {explanations.length === 0 && !isProcessing && (
+        {explanations.length === 0 && !isProcessing && !streamingExplanationId && (
            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
-             <p className="text-lg">The professor is ready.</p>
+             <p className="text-base sm:text-lg">The professor is ready.</p>
              <p className="text-sm mt-2">
                Explanations will be delivered in {language === 'english' ? 'English' : 'Bahasa Indonesia'}.
              </p>
@@ -151,7 +163,7 @@ const ProfessorView: React.FC<{
         )}
         
         {reversedExplanations.map((exp, index) => (
-          <div key={exp.id} className="bg-gray-700/50 rounded-lg p-4 border border-gray-600/50 shadow-sm hover:bg-gray-700/70 transition-colors">
+          <div key={exp.id} className={`bg-gray-700/50 rounded-lg p-3 sm:p-4 border border-gray-600/50 shadow-sm hover:bg-gray-700/70 transition-colors ${exp.isStreaming ? 'ring-2 ring-blue-500/50' : ''}`}>
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-indigo-400 font-semibold">
@@ -163,11 +175,19 @@ const ProfessorView: React.FC<{
                 }}>
                   {exp.language === 'english' ? 'EN' : 'ID'}
                 </span>
+                {exp.isStreaming && (
+                  <span className="text-xs px-2 py-1 rounded-full bg-blue-500 text-white animate-pulse">
+                    Streaming...
+                  </span>
+                )}
               </div>
               <span className="text-xs text-gray-500">{exp.timestamp}</span>
             </div>
             <div className="prose prose-invert max-w-none prose-p:text-gray-300 prose-p:text-sm prose-p:leading-relaxed">
-              <p className="whitespace-pre-wrap m-0">{exp.text}</p>
+              <p className="whitespace-pre-wrap m-0 text-sm sm:text-base">
+                {exp.text}
+                {exp.isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-blue-400 animate-pulse"></span>}
+              </p>
             </div>
           </div>
         ))}
@@ -181,21 +201,21 @@ const Controls: React.FC<{ onStart: () => void; onStop: () => void; isSharing: b
         {!isSharing ? (
             <button
                 onClick={onStart}
-                className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-500 transition-all duration-300 shadow-lg shadow-indigo-600/30 transform hover:scale-105"
+                className="flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-500 transition-all duration-300 shadow-lg shadow-indigo-600/30 transform hover:scale-105 text-sm sm:text-base"
             >
-                <PlayIcon className="w-6 h-6" />
+                <PlayIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                 Start Presenting
             </button>
         ) : (
             <button
                 onClick={onStop}
-                className="flex items-center gap-3 px-8 py-4 bg-red-600 text-white font-bold rounded-full hover:bg-red-500 transition-all duration-300 shadow-lg shadow-red-600/30 transform hover:scale-105"
+                className="flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-red-600 text-white font-bold rounded-full hover:bg-red-500 transition-all duration-300 shadow-lg shadow-red-600/30 transform hover:scale-105 text-sm sm:text-base"
             >
-                <StopIcon className="w-6 h-6" />
+                <StopIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                 Stop Presenting
             </button>
         )}
-        {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
+        {error && <p className="text-red-400 mt-4 text-center text-sm">{error}</p>}
     </div>
 );
 
@@ -207,6 +227,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('english');
   const [error, setError] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Explanation[]>([]);
+  const [streamingExplanationId, setStreamingExplanationId] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const currentCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -218,101 +239,133 @@ export default function App() {
   const processingLockRef = useRef<boolean>(false);
 
   const checkForSlideChangeAndExplain = useCallback(async () => {
-    if (processingLockRef.current || isProcessing || isSpeaking || !videoRef.current || videoRef.current.videoHeight === 0 || !chatRef.current) {
-        return;
-    }
+      if (processingLockRef.current || isProcessing || isSpeaking || !videoRef.current || videoRef.current.videoHeight === 0 || !chatRef.current) {
+          return;
+      }
 
-    const now = Date.now();
-    
-    if (now - lastProcessedTimeRef.current < MIN_PROCESSING_INTERVAL) {
-        return;
-    }
+      const now = Date.now();
+      
+      if (now - lastProcessedTimeRef.current < MIN_PROCESSING_INTERVAL) {
+          return;
+      }
 
-    try {
-        processingLockRef.current = true;
-        
-        const video = videoRef.current;
-        const currentCanvas = currentCanvasRef.current;
-        const previousCanvas = previousCanvasRef.current;
-        
-        const thumbWidth = 320;
-        const thumbHeight = (video.videoHeight / video.videoWidth) * thumbWidth;
-        
-        currentCanvas.width = thumbWidth;
-        currentCanvas.height = thumbHeight;
-        const currentContext = currentCanvas.getContext('2d', { willReadFrequently: true });
-        if (!currentContext) return;
-        
-        currentContext.drawImage(video, 0, 0, thumbWidth, thumbHeight);
+      try {
+          processingLockRef.current = true;
+          
+          const video = videoRef.current;
+          const currentCanvas = currentCanvasRef.current;
+          const previousCanvas = previousCanvasRef.current;
+          
+          const thumbWidth = 320;
+          const thumbHeight = (video.videoHeight / video.videoWidth) * thumbWidth;
+          
+          currentCanvas.width = thumbWidth;
+          currentCanvas.height = thumbHeight;
+          const currentContext = currentCanvas.getContext('2d', { willReadFrequently: true });
+          if (!currentContext) return;
+          
+          currentContext.drawImage(video, 0, 0, thumbWidth, thumbHeight);
 
-        if (previousCanvas.width > 0 && previousCanvas.height > 0) {
-            const similarity = calculateImageSimilarity(currentCanvas, previousCanvas);
-            
-            if (similarity > SIMILARITY_THRESHOLD) {
-                console.log(`Slide similarity: ${similarity.toFixed(3)} - Skipping (threshold: ${SIMILARITY_THRESHOLD})`);
-                processingLockRef.current = false;
-                return;
-            }
-            
-            console.log(`Slide similarity: ${similarity.toFixed(3)} - Processing new slide`);
-        }
+          if (previousCanvas.width > 0 && previousCanvas.height > 0) {
+              const similarity = calculateImageSimilarity(currentCanvas, previousCanvas);
+              
+              if (similarity > SIMILARITY_THRESHOLD) {
+                  console.log(`Slide similarity: ${similarity.toFixed(3)} - Skipping (threshold: ${SIMILARITY_THRESHOLD})`);
+                  processingLockRef.current = false;
+                  return;
+              }
+              
+              console.log(`Slide similarity: ${similarity.toFixed(3)} - Processing new slide`);
+          }
 
-        previousCanvas.width = thumbWidth;
-        previousCanvas.height = thumbHeight;
-        const previousContext = previousCanvas.getContext('2d');
-        if (previousContext) {
-            previousContext.drawImage(currentCanvas, 0, 0);
-        }
+          previousCanvas.width = thumbWidth;
+          previousCanvas.height = thumbHeight;
+          const previousContext = previousCanvas.getContext('2d');
+          if (previousContext) {
+              previousContext.drawImage(currentCanvas, 0, 0);
+          }
 
-        lastProcessedTimeRef.current = now;
-        
-        setIsProcessing(true);
-        setError(null);
-                const fullCanvas = document.createElement('canvas');
-        fullCanvas.width = video.videoWidth;
-        fullCanvas.height = video.videoHeight;
-        const fullContext = fullCanvas.getContext('2d');
-        if (!fullContext) return;
-        
-        fullContext.drawImage(video, 0, 0, fullCanvas.width, fullCanvas.height);
-        const fullImageDataUrl = fullCanvas.toDataURL('image/jpeg', 0.8);
-        const base64Image = fullImageDataUrl.split(',')[1];
-        
-        console.log('Processing slide with AI...');
-        const rawExplanationText = await explainSlide(base64Image, language);
-        
-        const explanationText = cleanExplanationText(rawExplanationText);
-        console.log(`${language.toUpperCase()}]:\n${explanationText}\n`);
+          lastProcessedTimeRef.current = now;
+          
+          setIsProcessing(true);
+          setError(null);
+          
+          const fullCanvas = document.createElement('canvas');
+          fullCanvas.width = video.videoWidth;
+          fullCanvas.height = video.videoHeight;
+          const fullContext = fullCanvas.getContext('2d');
+          if (!fullContext) return;
+          
+          fullContext.drawImage(video, 0, 0, fullCanvas.width, fullCanvas.height);
+          const fullImageDataUrl = fullCanvas.toDataURL('image/jpeg', 0.8);
+          const base64Image = fullImageDataUrl.split(',')[1];
+          
+          console.log('Processing slide with AI...');
+          
+          // Create the explanation entry immediately for streaming
+          const explanationId = crypto.randomUUID();
+          const newExplanation: Explanation = {
+              id: explanationId,
+              text: '',
+              timestamp: new Date().toLocaleTimeString(),
+              language: language,
+              isStreaming: true,
+              isComplete: false
+          };
+          
+          setExplanations(prev => [...prev, newExplanation]);
+          setStreamingExplanationId(explanationId);
+          setIsProcessing(false); // Set to false since we're now streaming
+          
+          // Handle streaming chunks
+          const handleChunk = (chunk: string) => {
+              setExplanations(prev => 
+                  prev.map(exp => 
+                      exp.id === explanationId 
+                          ? { ...exp, text: exp.text + chunk }
+                          : exp
+                  )
+              );
+          };
+          
+          // Start streaming
+          const fullExplanationText = await explainSlideStream(base64Image, language, handleChunk);
+          
+          // Mark as complete
+          setExplanations(prev => 
+              prev.map(exp => 
+                  exp.id === explanationId 
+                      ? { ...exp, isStreaming: false, isComplete: true }
+                      : exp
+              )
+          );
+          setStreamingExplanationId(null);
+          
+          const cleanedText = cleanExplanationText(fullExplanationText);
+          console.log(`${language.toUpperCase()}]:\n${cleanedText}\n`);
 
-
-        setExplanations(prev => [...prev, {
-            id: crypto.randomUUID(),
-            text: explanationText,
-            timestamp: new Date().toLocaleTimeString(),
-            language: language, 
-        }]);
-
-        if (!isMuted) {
-            console.log('TTS not muted - speaking explanation');
-            setIsSpeaking(true);
-            tts.speak(explanationText, () => {
-                console.log('TTS finished speaking');
-                setIsSpeaking(false);
-            });
-        } else {
-            console.log('TTS is muted - skipping speech for this explanation');
-        }
-        
-        setIsProcessing(false);
-        processingLockRef.current = false;
-        
-    } catch (err) {
-        console.error('Error processing slide:', err);
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to process slide: ${errorMessage}`);
-        setIsProcessing(false);
-        processingLockRef.current = false;
-    }
+          // Handle TTS after streaming is complete
+          if (!isMuted) {
+              console.log('TTS not muted - speaking explanation');
+              setIsSpeaking(true);
+              tts.speak(cleanedText, () => {
+                  console.log('TTS finished speaking');
+                  setIsSpeaking(false);
+              });
+          } else {
+              console.log('TTS is muted - skipping speech for this explanation');
+          }
+          
+          processingLockRef.current = false;
+          
+      } catch (err) {
+          console.error('Error processing slide:', err);
+          const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+          setError(`Failed to process slide: ${errorMessage}`);
+          setIsProcessing(false);
+          setStreamingExplanationId(null);
+          processingLockRef.current = false;
+      }
   }, [isProcessing, isSpeaking, isMuted, language]);
 
   const handleStopSharing = useCallback(() => {
@@ -331,6 +384,7 @@ export default function App() {
     setIsSharing(false);
     setIsProcessing(false);
     setIsSpeaking(false);
+    setStreamingExplanationId(null);
     chatRef.current = null;
     lastProcessedTimeRef.current = 0;
     processingLockRef.current = false;
@@ -352,6 +406,7 @@ export default function App() {
   const handleStartSharing = useCallback(async () => {
     setError(null);
     setExplanations([]);
+    setStreamingExplanationId(null);
     lastProcessedTimeRef.current = 0;
     processingLockRef.current = false;
     
@@ -414,33 +469,36 @@ export default function App() {
   }, [handleStopSharing]);
 
   return (
-    <div className="min-h-screen flex flex-col p-4 gap-4 bg-gray-900 text-gray-100">
+    <div className="min-h-screen flex flex-col p-2 sm:p-4 gap-2 sm:gap-4 bg-gray-900 text-gray-100">
         <header className="text-center">
-            <p className="mt-3 max-w-md mx-auto text-base text-gray-400 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+            <p className="mt-2 sm:mt-3 max-w-md mx-auto text-sm sm:text-base text-gray-400 lg:text-lg md:mt-5 xl:text-xl md:max-w-3xl">
                 Share your slides and let Professor Gemini deliver the lecture.
             </p>
         </header>
 
-        <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 max-h-[calc(100vh-200px)]">
-            <div className="lg:col-span-2 min-h-[400px] lg:min-h-0">
-                <ScreenPreview videoRef={videoRef} isSharing={isSharing} />
+        <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4 min-h-0 max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-200px)]">
+            <div className="hidden lg:block lg:col-span-2 min-h-[400px] lg:min-h-0">
+                 <ScreenPreview videoRef={videoRef} isSharing={isSharing} />
             </div>
-            <div className="lg:col-span-1 min-h-[400px] lg:min-h-0">
-                <ProfessorView 
-                    explanations={explanations} 
-                    isProcessing={isProcessing}
-                    isSpeaking={isSpeaking}
-                    isMuted={isMuted}
-                    language={language}
-                    onToggleMute={handleToggleMute}
-                    onToggleLanguage={handleToggleLanguage}
-                />
+            
+            <div className="col-span-1 lg:col-span-1 min-h-[400px] lg:min-h-0 h-full">
+            <ProfessorView 
+                explanations={explanations} 
+                isProcessing={isProcessing}
+                isSpeaking={isSpeaking}
+                isMuted={isMuted}
+                language={language}
+                streamingExplanationId={streamingExplanationId}
+                onToggleMute={handleToggleMute}
+                onToggleLanguage={handleToggleLanguage}
+            />
             </div>
         </main>
         
         <footer>
             <Controls onStart={handleStartSharing} onStop={handleStopSharing} isSharing={isSharing} error={error} />
         </footer>
+        
     </div>
   );
 }

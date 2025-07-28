@@ -3,4 +3,6 @@ export interface Explanation {
   text: string;
   timestamp: string;
   language: 'english' | 'indonesian';
+  isStreaming?: boolean;
+  isComplete?: boolean;
 }
