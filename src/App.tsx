@@ -288,6 +288,59 @@ const ProfessorView: React.FC<{
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (streamingExplanationId && scrollRef.current) {
+      const streamingExplanation = explanations.find(exp => exp.id === streamingExplanationId);
+      if (streamingExplanation && !streamingExplanation.text) {
+        console.log('New explanation detected - scrolling to top');
+        scrollRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        return;
+      }
+      
+      if (streamingExplanation && streamingExplanation.text.includes('----------')) {
+        setTimeout(() => {
+          if (!scrollRef.current) return;
+          const explanationElements = scrollRef.current.querySelectorAll('[data-explanation-id]');
+          let targetElement: Element | null = null;
+          
+          for (const element of explanationElements) {
+            if (element.getAttribute('data-explanation-id') === streamingExplanationId) {
+              targetElement = element;
+              break;
+            }
+          }
+          
+          if (targetElement) {
+            const textElement = targetElement.querySelector('p');
+            if (textElement) {
+              const fullText = textElement.textContent || '';
+              const firstDividerIndex = fullText.indexOf('----------');
+              
+              if (firstDividerIndex > 0) {
+                const elementRect = targetElement.getBoundingClientRect();
+                const containerRect = scrollRef.current.getBoundingClientRect();
+                const relativeTop = elementRect.top - containerRect.top + scrollRef.current.scrollTop;
+                const textBeforeDivider = fullText.substring(0, firstDividerIndex);
+                const lineHeight = 20; 
+                const charsPerLine = 60; 
+                const estimatedLines = Math.ceil(textBeforeDivider.length / charsPerLine);
+                const dividerOffset = estimatedLines * lineHeight;
+                const targetScrollPosition = relativeTop + dividerOffset;
+                
+                scrollRef.current.scrollTo({
+                  top: Math.max(0, targetScrollPosition),
+                  behavior: 'smooth'
+                });
+                
+                console.log(`Auto-scrolled to bring section divider to top of container`);
+              }
+            }
+          }
+        }, 300); 
+      }
+    }
   }, [explanations, streamingExplanationId]);
 
   const reversedExplanations = [...explanations].reverse();
@@ -388,7 +441,7 @@ const ProfessorView: React.FC<{
         )}
         
         {reversedExplanations.map((exp, index) => (
-          <div key={exp.id} className={`bg-gray-700/50 rounded-lg p-3 sm:p-4 border border-gray-600/50 shadow-sm hover:bg-gray-700/70 transition-colors ${exp.isStreaming ? 'ring-2 ring-blue-500/50' : ''}`}>
+          <div key={exp.id} data-explanation-id={exp.id} className={`bg-gray-700/50 rounded-lg p-3 sm:p-4 border border-gray-600/50 shadow-sm hover:bg-gray-700/70 transition-colors ${exp.isStreaming ? 'ring-2 ring-blue-500/50' : ''}`}>
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-indigo-400 font-semibold">
