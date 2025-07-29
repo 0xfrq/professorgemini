@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Explanation } from './types';
-import { explainSlideStream } from './services/geminiService';
+import { explainSlideStream, resetConversation } from './services/geminiService';
 import * as tts from './services/ttsService';
 import { PlayIcon, StopIcon, BookOpenIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from './components/icons';
 
@@ -346,9 +346,8 @@ const ProfessorView: React.FC<{
   const reversedExplanations = [...explanations].reverse();
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 sm:p-6 flex flex-col h-full border border-gray-700 max-h-[900px] sm:max-h-[600px] lg:max-h-[600px]">
-      <div className="flex justify-between items-center mb-4 flex-shrink-0">
-
+    <div className="bg-gray-800 rounded-lg p-2 sm:p-3 flex flex-col h-full border border-gray-700 max-h-[1200px] sm:max-h-[1200px] lg:max-h-[1200px]">
+      <div className="flex justify-between items-center mb-2 flex-shrink-0">
         <div className="flex items-center gap-2">
           {!isSharing ? (
             <button
@@ -391,12 +390,8 @@ const ProfessorView: React.FC<{
           >
             {isMuted ? <SpeakerXMarkIcon className="w-4 h-4" /> : <SpeakerWaveIcon className="w-4 h-4" />}
           </button>
-        </div>
-      </div>
-      
-      <div className="flex-shrink-0 mb-4">
-        {isProcessing && (
-           <div className="flex items-center gap-3 p-3 rounded-lg bg-indigo-600/20 border border-indigo-500/30">
+                  {isProcessing && (
+           <div className="flex items-center gap-2 p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30">
              <div className="w-3 h-3 bg-indigo-400 rounded-full animate-pulse"></div>
              <p className="text-indigo-200 text-sm font-medium">
                Professor is analyzing a new slide{language === 'indonesian' ? ' (Bahasa Indonesia)' : ' (English)'}...
@@ -404,28 +399,31 @@ const ProfessorView: React.FC<{
            </div>
         )}
         {streamingExplanationId && !isProcessing && (
-           <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-600/20 border border-blue-500/30">
+           <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-600/20 border border-blue-500/30">
              <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
              <p className="text-blue-200 text-sm font-medium">Professor is explaining...</p>
            </div>
         )}
         {isSpeaking && !isProcessing && !streamingExplanationId && (
-           <div className="flex items-center gap-3 p-3 rounded-lg bg-green-600/20 border border-green-500/30">
+           <div className="flex items-center gap-2 p-2 rounded-lg bg-green-600/20 border border-green-500/30">
              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
              <p className="text-green-200 text-sm font-medium">Professor is speaking...</p>
            </div>
         )}
         {isMuted && !isProcessing && !isSpeaking && !streamingExplanationId && (
-           <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-600/20 border border-orange-500/30">
+           <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-600/20 border border-orange-500/30">
              <SpeakerXMarkIcon className="w-4 h-4 text-orange-400" />
              <p className="text-orange-200 text-sm font-medium">
-               Text-to-Speech is muted - click the speaker button to enable audio
+               Muted
              </p>
            </div>
         )}
+        </div>
       </div>
+      
 
-      <div ref={scrollRef} className="flex-grow overflow-y-auto space-y-4 pr-2">
+
+      <div ref={scrollRef} className="flex-grow overflow-y-auto space-y-4 pr-2 scrollbar-hide">
         {explanations.length === 0 && !isProcessing && !streamingExplanationId && (
            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
              <p className="text-base sm:text-lg">The professor is ready.</p>
@@ -581,7 +579,8 @@ export default function App() {
               );
           };
           
-          const fullExplanationText = await explainSlideStream(base64Image, language, handleChunk);
+          const currentSlideNumber = explanations.length + 1;
+          const fullExplanationText = await explainSlideStream(base64Image, language, handleChunk, currentSlideNumber);
           
           setExplanations(prev => 
               prev.map(exp => 
@@ -648,6 +647,7 @@ export default function App() {
     setWheelForwardingEnabled(false);
     lastProcessedTimeRef.current = 0;
     processingLockRef.current = false;
+    resetConversation();
     
     if (currentCanvasRef.current) {
       const ctx = currentCanvasRef.current.getContext('2d');
@@ -745,14 +745,9 @@ export default function App() {
   }, [handleStopSharing]);
 
   return (
-    <div className="min-h-screen flex flex-col p-2 sm:p-4 gap-2 sm:gap-4 bg-gray-900 text-gray-100">
-        <header className="text-center">
-            <p className="mt-2 sm:mt-3 max-w-md mx-auto text-sm sm:text-base text-gray-400 lg:text-lg md:mt-5 xl:text-xl md:max-w-3xl">
-                Share your slides and let Professor Gemini deliver the lecture.
-            </p>
-        </header>
+    <div className="h-screen flex flex-col p-2 sm:p-4 gap-2 sm:gap-4 bg-gray-900 text-gray-100">
 
-        <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4 min-h-0 max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-200px)]">
+        <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4 min-h-0 ">
             <div className="hidden lg:block lg:col-span-2 min-h-[400px] lg:min-h-0">
                  <ScreenPreview 
                    videoRef={videoRef} 
@@ -780,13 +775,6 @@ export default function App() {
             </div>
         </main>
         
-        <footer>
-            {error && (
-                <div className="flex justify-center p-4">
-                    <p className="text-red-400 text-center text-sm">{error}</p>
-                </div>
-            )}
-        </footer>
         
     </div>
   );
