@@ -267,30 +267,7 @@ const ScreenPreview: React.FC<{
         )}
       </div>
 
-      {isSharing && wheelForwardingEnabled && (
-        <div className={`p-2 border-t ${
-          controlStatus === 'active' ? 'bg-green-600/20 border-green-500/30' :
-          controlStatus === 'requesting' ? 'bg-blue-600/20 border-blue-500/30' :
-          controlStatus === 'denied' ? 'bg-red-600/20 border-red-500/30' :
-          controlStatus === 'unsupported' ? 'bg-orange-600/20 border-orange-500/30' :
-          'bg-blue-600/20 border-blue-500/30'
-        }`}>
-          <p className={`text-xs text-center ${
-            controlStatus === 'active' ? 'text-green-200' :
-            controlStatus === 'requesting' ? 'text-blue-200' :
-            controlStatus === 'denied' ? 'text-red-200' :
-            controlStatus === 'unsupported' ? 'text-orange-200' :
-            'text-blue-200'
-          }`}>
-            {controlStatus === 'requesting' && '🔄 Requesting permission for scroll control...'}
-            {controlStatus === 'active' && '🖱️ Native scroll control active - scroll here to control the captured tab'}
-            {controlStatus === 'denied' && '❌ Using keyboard simulation fallback - scroll to send arrow/page key events'}
-            {controlStatus === 'unsupported' && '⚠️ Native scroll control not supported - using keyboard simulation fallback'}
-            {controlStatus === 'none' && !isTabCapture && '⚠️ Please capture a browser tab to enable scroll control'}
-            {controlStatus === 'none' && isTabCapture && '🖱️ Click "Enabled" to activate scroll control'}
-          </p>
-        </div>
-      )}
+
     </div>
   );
 };
