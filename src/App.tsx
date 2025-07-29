@@ -58,6 +58,8 @@ const ScreenPreview: React.FC<{
   onWheelForwardingChange: (enabled: boolean) => void;
   wheelForwardingEnabled: boolean;
   captureController: any;
+  onKeyboardNavigationChange: (enabled: boolean) => void;
+  keyboardNavigationEnabled: boolean;
 }> = ({ videoRef, isSharing, onWheelForwardingChange, wheelForwardingEnabled, captureController }) => {
   const previewRef = useRef<HTMLDivElement>(null);
   const [controlStatus, setControlStatus] = useState<'none' | 'requesting' | 'active' | 'denied' | 'unsupported'>('none');
@@ -191,48 +193,109 @@ const ScreenPreview: React.FC<{
     };
   }, [isSharing, wheelForwardingEnabled, captureController, isTabCapture]);
 
+  useEffect(() => {
+    if (!isSharing) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const direction = event.key === 'ArrowRight' ? 'next' : 'previous';
+        console.log(`Keyboard navigation: ${direction} slide`);
+        
+        try {
+          const arrowKey = event.key; 
+          const pageKey = event.key === 'ArrowRight' ? 'PageDown' : 'PageUp';
+          
+          const keys = [arrowKey, pageKey];
+          
+          keys.forEach((key, index) => {
+            setTimeout(() => {
+              const keydownEvent = new KeyboardEvent('keydown', {
+                key: key,
+                code: key,
+                bubbles: true,
+                cancelable: true
+              });
+              
+              const keyupEvent = new KeyboardEvent('keyup', {
+                key: key,
+                code: key,
+                bubbles: true,
+                cancelable: true
+              });
+              
+              document.dispatchEvent(keydownEvent);
+              setTimeout(() => document.dispatchEvent(keyupEvent), 50);
+              
+              console.log(`Simulated ${key} key press for slide navigation`);
+            }, index * 100);
+          });
+          
+        } catch (err) {
+          console.warn('Failed to simulate keyboard navigation:', err);
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    console.log('Keyboard navigation enabled - use left/right arrow keys to navigate slides');
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      console.log('Keyboard navigation disabled');
+    };
+  }, [isSharing]);
+
   return (
     <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden border border-gray-700 flex flex-col">
       {isSharing && (
         <div className="flex justify-between items-center p-2 bg-gray-800/50 border-b border-gray-700">
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            Scroll Control: 
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              controlStatus === 'active' ? 'bg-green-600 text-white' :
-              controlStatus === 'requesting' ? 'bg-blue-600 text-white' :
-              controlStatus === 'denied' ? 'bg-red-600 text-white' :
-              controlStatus === 'unsupported' ? 'bg-orange-600 text-white' :
-              'bg-gray-600 text-gray-300'
-            }`}>
-              {controlStatus === 'active' ? 'Active' :
-               controlStatus === 'requesting' ? 'Requesting' :
-               controlStatus === 'denied' ? 'Denied/Fallback' :
-               controlStatus === 'unsupported' ? 'Unsupported' :
-               'Disabled'}
-            </span>
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            <div className="flex items-center gap-2">
+              Scroll Control: 
+              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                controlStatus === 'active' ? 'bg-green-600 text-white' :
+                controlStatus === 'requesting' ? 'bg-blue-600 text-white' :
+                controlStatus === 'denied' ? 'bg-red-600 text-white' :
+                controlStatus === 'unsupported' ? 'bg-orange-600 text-white' :
+                'bg-gray-600 text-gray-300'
+              }`}>
+                {controlStatus === 'active' ? 'Active' :
+                 controlStatus === 'requesting' ? 'Requesting' :
+                 controlStatus === 'denied' ? 'Denied/Fallback' :
+                 controlStatus === 'unsupported' ? 'Unsupported' :
+                 'Disabled'}
+              </span>
+            </div>
             {!isTabCapture && isSharing && (
               <span className="text-xs text-orange-400">
-                (Tab capture required)
+                (Tab capture required for scroll)
               </span>
             )}
           </div>
           
-          <button
-            onClick={() => onWheelForwardingChange(!wheelForwardingEnabled)}
-            className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
-              wheelForwardingEnabled 
-                ? 'bg-green-600 border-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-600 border-gray-600 text-gray-300 hover:bg-gray-700'
-            }`}
-            title={wheelForwardingEnabled ? 'Disable scroll control' : 'Enable scroll control'}
-            disabled={controlStatus === 'requesting'}
-          >
-            <span className={`w-2 h-2 rounded-full ${
-              controlStatus === 'requesting' ? 'bg-blue-300 animate-pulse' :
-              wheelForwardingEnabled ? 'bg-green-300' : 'bg-gray-400'
-            }`}></span>
-            {wheelForwardingEnabled ? 'Enabled' : 'Disabled'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onWheelForwardingChange(!wheelForwardingEnabled)}
+              className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                wheelForwardingEnabled 
+                  ? 'bg-green-600 border-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-600 border-gray-600 text-gray-300 hover:bg-gray-700'
+              }`}
+              title={wheelForwardingEnabled ? 'Disable scroll control' : 'Enable scroll control'}
+              disabled={controlStatus === 'requesting'}
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                controlStatus === 'requesting' ? 'bg-blue-300 animate-pulse' :
+                wheelForwardingEnabled ? 'bg-green-300' : 'bg-gray-400'
+              }`}></span>
+              Scroll
+            </button>
+            
+          </div>
         </div>
       )}
 
@@ -481,6 +544,7 @@ export default function App() {
   const [explanations, setExplanations] = useState<Explanation[]>([]);
   const [streamingExplanationId, setStreamingExplanationId] = useState<string | null>(null);
   const [wheelForwardingEnabled, setWheelForwardingEnabled] = useState(false);
+  const [keyboardNavigationEnabled, setKeyboardNavigationEnabled] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const currentCanvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -643,6 +707,7 @@ export default function App() {
     setIsSpeaking(false);
     setStreamingExplanationId(null);
     setWheelForwardingEnabled(false);
+    setKeyboardNavigationEnabled(false);
     lastProcessedTimeRef.current = 0;
     processingLockRef.current = false;
     resetConversation();
@@ -752,6 +817,8 @@ export default function App() {
                    onWheelForwardingChange={setWheelForwardingEnabled}
                    wheelForwardingEnabled={wheelForwardingEnabled}
                    captureController={captureControllerRef.current}
+                   onKeyboardNavigationChange={setKeyboardNavigationEnabled}
+                   keyboardNavigationEnabled={keyboardNavigationEnabled}
                  />
             </div>
             
