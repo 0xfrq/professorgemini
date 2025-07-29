@@ -121,7 +121,6 @@ export const cancel = () => {
 };
 
 export const setApiKey = (_apiKey: string) => {
-    // This function is now deprecated since we use env variable
     console.warn('setApiKey is deprecated. Please set VITE_API_KEY environment variable instead.');
 };
 
