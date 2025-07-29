@@ -400,7 +400,7 @@ const ProfessorView: React.FC<{
         )}
         {streamingExplanationId && !isProcessing && (
            <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-600/20 border border-blue-500/30">
-             <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+             <div className="w-3 h-2 bg-blue-400 rounded-full animate-pulse"></div>
              <p className="text-blue-200 text-sm font-medium">Professor is explaining...</p>
            </div>
         )}
@@ -478,7 +478,6 @@ export default function App() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [language, setLanguage] = useState<Language>('english');
-  const [error, setError] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Explanation[]>([]);
   const [streamingExplanationId, setStreamingExplanationId] = useState<string | null>(null);
   const [wheelForwardingEnabled, setWheelForwardingEnabled] = useState(false);
@@ -542,7 +541,6 @@ export default function App() {
           lastProcessedTimeRef.current = now;
           
           setIsProcessing(true);
-          setError(null);
           
           const fullCanvas = document.createElement('canvas');
           fullCanvas.width = video.videoWidth;
@@ -610,7 +608,7 @@ export default function App() {
       } catch (err) {
           console.error('Error processing slide:', err);
           const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-          setError(`Failed to process slide: ${errorMessage}`);
+          console.error(`Failed to process slide: ${errorMessage}`);
           setIsProcessing(false);
           setStreamingExplanationId(null);
           processingLockRef.current = false;
@@ -664,7 +662,6 @@ export default function App() {
   }, []);
 
   const handleStartSharing = useCallback(async () => {
-    setError(null);
     setExplanations([]);
     setStreamingExplanationId(null);
     lastProcessedTimeRef.current = 0;
@@ -709,7 +706,7 @@ export default function App() {
     } catch (err) {
       console.error("Error starting screen share:", err);
       const errorMessage = err instanceof Error ? err.message : 'Could not start screen share.';
-      setError(`Error: ${errorMessage}`);
+      console.error(`Error: ${errorMessage}`);
       captureControllerRef.current = null;
     }
   }, [checkForSlideChangeAndExplain, handleStopSharing]);
