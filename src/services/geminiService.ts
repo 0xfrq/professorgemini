@@ -62,6 +62,7 @@ export async function explainSlideStream(
       const chunkText = chunk.text || '';
       fullText += chunkText;
       onChunk(chunkText);
+      console.log(chunkText)
     }
     
     return fullText;
